@@ -31,12 +31,14 @@ float powderThick = 28.5;
 
 float Tol = 2.5;
 
-basename = "/Users/Jacob/Desktop/First_Year_PhD/Research/Layer_270_09_10/0/";
+basename = "/scratch/Powder-Layer-Consolidation/Layer_270_09_10/0/";
 
 np = 4;
 
 //extern functions from the gol-cuda file
 extern void num_ElementsNodes(char basename, int myrank);
+
+extern int offsetCalc(char basename, int numranks);
 
 extern void read_coordinates(char basename, int myrank, size_t nnodes);
 
@@ -53,13 +55,16 @@ int main(int argc, char *argv[])
   //inititialize variables needed for calculations
   int myrank;
   int numranks;
+  int i;
   ushort threadsCount = 0;
-
+  int offset;
   //The only user input for the function is the desired number of threads
   threadsCount = atoi(argv[1]);
 
   //Commands to intialize MPI part
   MPI_Init(&argc, &argv);
+  MPI_Status status; //Get status of MPI
+  MPI_Request request; //Set up requests for MPI send and receive
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank); //rank of the current process
   MPI_Comm_size(MPI_COMM_WORLD, &numranks); //Total Number of MPI ranks
 
@@ -69,3 +74,10 @@ int main(int argc, char *argv[])
   read_psi(basename, myrank, nel);
   gol_runKernel(coordinates, nnodes, powder_thick, Tol, elements,
 		nel, ID, threadsCount);
+
+  offset = offsetCalc(basename, numranks);
+
+  for(i=0;nel;i++)
+    {
+      elements[i] = elements[i] + offset[myrank];
+    }

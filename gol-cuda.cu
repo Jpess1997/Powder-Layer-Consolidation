@@ -29,6 +29,8 @@ extern "C"
 {
   extern void num_ElementsNodes(char basename, int myrank);
 
+  extern int offsetCalc(char basename, int numranks);
+  
   extern void read_coordinates(char basename, int myrank, size_t nnodes);
 
   extern void read_elements(char basename, int myrank, size_t nel);
@@ -68,6 +70,42 @@ void num_ElementsNodes(char basename, int myrank)
 
   nnodes = nnodesG;
   nel = ncellsG;
+}
+
+int offsetCalc(char basename, int numranks)
+{
+  int i;
+  char fname[30];
+  FILE *fp;
+  char tline[50];
+  int num;
+  int nnodesG;
+  int offset;
+  for(i=0;i<numranks;i++)
+    {
+      snprintf(fname,100,"%u.vtu",myrank);
+      strcat(basename,fname);
+      fp = fopen(basename,"r");
+
+      fgets(fp);
+      fgets(fp);
+      fgets(tline,50,fp);
+  
+      num = sscanf(tline,"<Piece NumberOfPoints=\"%d\"",int nnodesl);
+      nnodesG[i] = nnodesl;
+    }
+
+  for(i=0;i<numranks;i++)
+    {
+      offset[i] = 0;
+    }
+  
+  for(i=1;i<numranks;i++)
+    {
+      offset[i] = offset[i-1] + nnodesG[i-1];
+    }
+
+  return offset;
 }
 
 void read_coordinates(char basename, int myrank, size_t nnodes)
@@ -178,14 +216,14 @@ void read_elements(char basename, int myrank, size_t nel)
 	}
     }
 
-  for(i=0,i<nnodes,i++)
+  for(i=0,i<nel,i++)
     {
       fgets(tline,50,fp);
       int num3 = sscanf(tline,"%f %f %f %f",int x);
-      coordinates[count][0] = x[0];
-      coordinates[count][1] = x[1];
-      coordinates[count][2] = x[2];
-      coordinates[count][3] = x[3];
+      elements[count][0] = x[0];
+      elements[count][1] = x[1];
+      elements[count][2] = x[2];
+      elements[count][3] = x[3];
       count++;
     }
   fclose(fp);
