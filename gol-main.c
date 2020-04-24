@@ -4,6 +4,10 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
+#include <math.h>
+#include<unistd.h>
+#include<stdbool.h>
+#include<mpi.h>
 
 unsigned char *coordinates;
 
@@ -31,4 +35,37 @@ basename = "/Users/Jacob/Desktop/First_Year_PhD/Research/Layer_270_09_10/0/";
 
 np = 4;
 
+//extern functions from the gol-cuda file
+extern void num_ElementsNodes(char basename, int myrank);
 
+extern void read_coordinates(char basename, int myrank, size_t nnodes);
+
+extern void read_elements(char basename, int myrank, size_t nel);
+
+extern void read_psi(char basename, int myrank, size_t nel);
+
+extern bool gol_runKernel(unsigned char coordinates, size_t nnodes, float powder_thick, float Tol, unsigned char elements,
+			  size_t nel, ushort threadsCount);
+
+//Main function for the FEM powder layer consolidation
+int main(int argc, char *argv[])
+{
+  //inititialize variables needed for calculations
+  int myrank;
+  int numranks;
+  ushort threadsCount = 0;
+
+  //The only user input for the function is the desired number of threads
+  threadsCount = atoi(argv[1]);
+
+  //Commands to intialize MPI part
+  MPI_Init(&argc, &argv);
+  MPI_Comm_rank(MPI_COMM_WORLD, &myrank); //rank of the current process
+  MPI_Comm_size(MPI_COMM_WORLD, &numranks); //Total Number of MPI ranks
+
+  num_ElementsNodes(basename, myrank);
+  read_coordinates(basename, myrank, nnodes);
+  read_elements(basename, myrank, nel);
+  read_psi(basename, myrank, nel);
+  gol_runKernel(coordinates, nnodes, powder_thick, Tol, elements,
+		nel, ID, threadsCount);
