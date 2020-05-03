@@ -9,21 +9,27 @@
 #include<stdbool.h>
 #include<mpi.h>
 
-unsigned char *coordinates;
+int *ID;
 
-unsigned char *elements;
+float *d;
 
-size_t nel, nnodes, np, nzmax;
+float *a_bar;
 
-char basename;
+float *coordinates;
 
-unsigned char *psi;
+float *elements;
 
-unsigned char *LM;
+int nel, nnodes, nzmax;
 
-unsigned char *irow;
+char baseName[80]  = "/Powder-Layer-Consolidation/Layer_270_09_10/0/";
 
-unsigned char *icol;
+float *psi;
+
+float *LM;
+
+int *irow;
+
+int *icol;
 
 float porosity = 0.8;
 
@@ -31,23 +37,25 @@ float powderThick = 28.5;
 
 float Tol = 2.5;
 
-basename = "/scratch/Powder-Layer-Consolidation/Layer_270_09_10/0/";
-
-np = 4;
+size_t np = 4;
 
 //extern functions from the gol-cuda file
-extern void num_ElementsNodes(char basename, int myrank);
+extern void num_ElementsNodes(char baseName[80], int myrank);
 
-extern int offsetCalc(char basename, int numranks);
+extern int offsetCalc(char baseName[80], int numranks, int myrank);
 
-extern void read_coordinates(char basename, int myrank, size_t nnodes);
+extern void read_coordinates(char baseName[80], int myrank, int nnodes);
 
-extern void read_elements(char basename, int myrank, size_t nel);
+extern void read_elements(char baseName[80], int myrank, int nel);
 
-extern void read_psi(char basename, int myrank, size_t nel);
+extern void read_psi(char baseName[80], int myrank, int nel);
 
-extern bool gol_runKernel(unsigned char coordinates, size_t nnodes, float powder_thick, float Tol, unsigned char elements,
-			  size_t nel, ushort threadsCount);
+extern bool gol_runKernel(float *coordinates, int nnodes, float powderThick,
+			  float Tol, float *elements,
+                          int nel, int **d_ID, ushort threadsCount,
+			  float **d_d, float **d_a_bar);
+
+extern void gol_freeData();
 
 //Main function for the FEM powder layer consolidation
 int main(int argc, char *argv[])
@@ -68,16 +76,84 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank); //rank of the current process
   MPI_Comm_size(MPI_COMM_WORLD, &numranks); //Total Number of MPI ranks
 
-  num_ElementsNodes(basename, myrank);
-  read_coordinates(basename, myrank, nnodes);
-  read_elements(basename, myrank, nel);
-  read_psi(basename, myrank, nel);
-  gol_runKernel(coordinates, nnodes, powder_thick, Tol, elements,
-		nel, ID, threadsCount);
+  num_ElementsNodes(baseName, myrank);
+  read_coordinates(baseName, myrank, nnodes);
+  read_elements(baseName, myrank, nel);
+  read_psi(baseName, myrank, nel);
+  gol_runKernel(coordinates, nnodes, powderThick,
+		Tol, elements,
+		nel, &ID, threadsCount,
+		&d, &a_bar);
 
-  offset = offsetCalc(basename, numranks);
+  offset = offsetCalc(baseName, numranks, myrank);
 
   for(i=0;nel;i++)
+  {
+    elements[i] = elements[i] + offset[&myrank];
+  }
+
+  double timeStart; // start the timer for recording the processing time for the file writing
+  if (myrank == 0)
     {
-      elements[i] = elements[i] + offset[myrank];
+      printf("StartTimer\n");
+      timeStart = MPI_Wtime();
     }
+
+  //Write data to single file for use in post-processing of mesh consolidation
+  MPI_File fh;
+  int bufsize, nintsC, nintsE;
+  //int buf[40000000];
+  int fileLength = (sizeof(coordinates) + sizeof(elements))*numranks;
+  bufsize = fileLength/numranks;
+  nintsC = sizeof(coordinates)/sizeof(coordinates[0]);
+  nintsE = sizeof(elements)/sizeof(elements[0]);
+
+  MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR |
+		MPI_MODE_CREATE,
+		MPI_INFO_NULL,&fh);
+  MPI_File_write_at(fh,myrank*bufsize,coordinates,nintsC,MPI_FLOAT,&status);
+  MPI_File_write_at(fh,myrank*bufsize+sizeof(coordinates),elements,nintsE,MPI_FLOAT,&status);
+  MPI_File_close(&fh);
+
+  double timeEnd;
+  double time;
+  //stop the timer and calculate the total run time for the file writing
+  if (myrank == 0)
+    {
+      timeEnd = MPI_Wtime();
+      time = timeEnd - timeStart;
+      printf("Run time is %lf\n", time);
+    }
+
+  float coordBuf[sizeof(coordinates)];
+  float elemBuf[sizeof(elements)];
+  MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR,
+		MPI_INFO_NULL,&fh);
+  MPI_File_read_at(fh,myrank*bufsize,coordBuf,nintsC,MPI_FLOAT,&status);
+  MPI_File_read_at(fh,myrank*bufsize+sizeof(coordinates),elemBuf,nintsE,MPI_FLOAT,&status);
+  MPI_File_close(&fh);
+  
+  MPI_Finalize();
+
+  return false;
+  //if(myrank == 0)
+  //  {
+  //    MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR |
+  //                MPI_MODE_CREATE | MPI_MODE_DELETE_ON_CLOSE,
+  //		    MPI_INFO_NULL,&fh);
+  //     char string = "# vtk DataFile Version 3.8\nVelocities, pressures and level set\nASCII\nDATASET UNSTRUCTURED_GRID\n";
+  //  }
+  
+}
+
+typedef unsigned long long ticks;
+static __inline__ ticks getticks(void)
+{
+  unsigned int tbl, tbu0, tbu1;
+  do {
+      __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
+    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
+  } while (tbu0 != tbu1);
+  return ((((unsigned long long)tbu0) << 32) | tbl);
+}
