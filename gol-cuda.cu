@@ -96,7 +96,7 @@ void num_ElementsNodes(char baseName [80], int myrank)
   nel = ncellsG;
 }
 
-int offsetCalc(char baseName, int numranks, int myrank)
+int offsetCalc(char baseName [80], int numranks, int myrank)
 {
   int i;
   char fname[30];
@@ -107,8 +107,8 @@ int offsetCalc(char baseName, int numranks, int myrank)
   for(i=0;i<numranks;i++)
     {
       snprintf(fname,100,"%u.vtu",myrank);
-      strcat(&baseName,fname);
-      fp = fopen(&baseName,"r");
+      strcat(baseName,fname);
+      fp = fopen(baseName,"r");
 
       fgets(tline,50,fp);
 
@@ -128,7 +128,7 @@ int offsetCalc(char baseName, int numranks, int myrank)
     return offset[numranks];
 }
 
-void read_coordinates(char baseName, int myrank, int nnodes)
+void read_coordinates(char baseName [80], int myrank, int nnodes)
 {
   int a,b;
   //float coordinates[nnodes][3];
@@ -139,7 +139,7 @@ void read_coordinates(char baseName, int myrank, int nnodes)
     {
       for(b=0;b<3;b++)
 	{
-	  coordinates[a+b] = 0;
+	  coordinates[a+b*nnodes] = 0;
 	}
     }
 
@@ -150,9 +150,9 @@ void read_coordinates(char baseName, int myrank, int nnodes)
 
   char fname[30];
   snprintf(fname,100,"%u.vtu",myrank);
-  strcat(&baseName,fname);
+  strcat(baseName,fname);
   FILE *fp;
-  fp = fopen(&baseName,"r");
+  fp = fopen(baseName,"r");
 
   char tline[50];
   fgets(tline,50,fp);
@@ -201,7 +201,7 @@ void read_coordinates(char baseName, int myrank, int nnodes)
   fclose(fp);
 }
 
-void read_elements(char baseName, int myrank, int nel)
+void read_elements(char baseName [80], int myrank, int nel)
 {
   cudaMallocManaged(&elements, ((nel * 4) * sizeof(float)));
   int a;
@@ -216,9 +216,9 @@ void read_elements(char baseName, int myrank, int nel)
 
   char fname[30];
   snprintf(fname,100,"%u.vtu",myrank);
-  strcat(&baseName,fname);
+  strcat(baseName,fname);
   FILE *fp;
-  fp = fopen(&baseName,"r");
+  fp = fopen(baseName,"r");
 
   char tline[50];
   fgets(tline,50,fp);
@@ -268,7 +268,7 @@ void read_elements(char baseName, int myrank, int nel)
   fclose(fp);
 }
 
-void read_psi(char baseName, int myrank, int nel)
+void read_psi(char baseName [80], int myrank, int nel)
 {
   cudaMallocManaged(&psi, (nel * sizeof(float)));
 
@@ -278,9 +278,9 @@ void read_psi(char baseName, int myrank, int nel)
 
   char fname[30];
   snprintf(fname,100,"%u.vtu",myrank);
-  strcat(&baseName,fname);
+  strcat(baseName,fname);
   FILE *fp;
-  fp = fopen(&baseName,"r");
+  fp = fopen(baseName,"r");
 
   char tline[50];
   fgets(tline,50,fp);
@@ -513,7 +513,7 @@ __global__ void gen_corrector(int nnodes, int *d_ID, float *d_a_bar, float powde
   //return d
 }
 
-bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, float *elements, int nel, int *d_ID, ushort threadsCount, float *d_d, float *d_a_bar)
+bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, float *elements, int nel, int **d_ID, ushort threadsCount, float **d_d, float **d_a_bar)
 {
   //Get boundary nodes
   int count = 0;
@@ -728,7 +728,7 @@ bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, 
   //Corrector phase to be done in cuda 
   size_t reqBlocksCount2 = ceil(nnodes/threadsCount); //number of blocks count for the LM array
   unsigned int blocksCount2 = (unsigned int)min(65536, (unsigned int)reqBlocksCount2);
-  gen_corrector<<<blocksCount2, threadsCount>>>(nnodes, d_ID, d_a_bar, powderThick, d_d);
+  gen_corrector<<<blocksCount2, threadsCount>>>(nnodes, *d_ID, *d_a_bar, powderThick, *d_d);
   cudaDeviceSynchronize();
 
   for(i=0;i<nnodes;i++)
