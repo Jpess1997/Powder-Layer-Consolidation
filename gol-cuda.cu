@@ -65,21 +65,35 @@ extern "C"
   extern void gol_freeData();
 }
 
+void printLine(int line)
+{
+  char fileName[30];
+  snprintf(fileName,100,"errorAtLineCuda.txt");
+  FILE *fp;
+  fp = fopen(fileName,"w+");
+  fprintf(fp,"Line is %d.\n",line);
+  fclose(fp);
+}
+
 void num_ElementsNodes(char baseName [80], int myrank)
 {
+  printLine(__LINE__);
   char fname [100];
   snprintf(fname,100,"%u.vtu",myrank);
   strcat(baseName, fname);
   FILE *fp;
   fp = fopen(baseName,"r");
-
+  printLine(__LINE__);
+  
   fgets(baseName, 47, fp);
   char tline[50];
   fgets(tline, 50, fp);
-
+  printLine(__LINE__);
+  
   int num = sscanf(tline,"<Piece NumberOfPoints=\"%d\"",&nnodesl);
   int nnodesG = nnodesl;
-
+  printLine(__LINE__);
+  
   char str1 [24] = "<Piece NumberOfPoints=\"";
   char str2 [30];
   snprintf(str2,100,"%d",nnodesl);
@@ -91,7 +105,8 @@ void num_ElementsNodes(char baseName [80], int myrank)
   int ncellsl;
   int num2 = sscanf(tline,str4, &ncellsl);
   int ncellsG = ncellsl;
-
+  printLine(__LINE__);
+  
   nnodes = nnodesG;
   nel = ncellsG;
 }

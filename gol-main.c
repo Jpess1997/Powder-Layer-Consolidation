@@ -57,9 +57,21 @@ extern bool gol_runKernel(float *coordinates, int nnodes, float powderThick,
 
 extern void gol_freeData();
 
+void printLine(int line)
+{
+  char fileName[30];
+  snprintf(fileName,100,"errorAtLine.txt");
+  FILE *fp;
+  fp = fopen(fileName,"w+");
+  fprintf(fp,"Line is %d.\n",line);
+  fclose(fp);
+}
+
 //Main function for the FEM powder layer consolidation
 int main(int argc, char *argv[])
 {
+  printLine(__LINE__);
+  
   //inititialize variables needed for calculations
   int myrank;
   int numranks;
@@ -69,6 +81,8 @@ int main(int argc, char *argv[])
   //The only user input for the function is the desired number of threads
   threadsCount = atoi(argv[1]);
 
+  printLine(__LINE__);
+  
   //Commands to intialize MPI part
   MPI_Init(&argc, &argv);
   MPI_Status status; //Get status of MPI
@@ -76,22 +90,34 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank); //rank of the current process
   MPI_Comm_size(MPI_COMM_WORLD, &numranks); //Total Number of MPI ranks
 
+  printLine(__LINE__);
+  
   num_ElementsNodes(baseName, myrank);
+  printLine(__LINE__);
   read_coordinates(baseName, myrank, nnodes);
+  printLine(__LINE__);
   read_elements(baseName, myrank, nel);
+  printLine(__LINE__);
   read_psi(baseName, myrank, nel);
+  printLine(__LINE__);
   gol_runKernel(coordinates, nnodes, powderThick,
 		Tol, elements,
 		nel, &ID, threadsCount,
 		&d, &a_bar);
 
+  printLine(__LINE__);
+  
   offset = offsetCalc(baseName, numranks, myrank);
 
+  printLine(__LINE__);
+  
   for(i=0;nel;i++)
   {
     elements[i] = elements[i] + offset[&myrank];
   }
 
+  printLine(__LINE__);
+  
   double timeStart; // start the timer for recording the processing time for the file writing
   if (myrank == 0)
     {
@@ -108,6 +134,8 @@ int main(int argc, char *argv[])
   nintsC = sizeof(coordinates)/sizeof(coordinates[0]);
   nintsE = sizeof(elements)/sizeof(elements[0]);
 
+  printLine(__LINE__);
+  
   MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR |
 		MPI_MODE_CREATE,
 		MPI_INFO_NULL,&fh);
@@ -115,6 +143,8 @@ int main(int argc, char *argv[])
   MPI_File_write_at(fh,myrank*bufsize+sizeof(coordinates),elements,nintsE,MPI_FLOAT,&status);
   MPI_File_close(&fh);
 
+  printLine(__LINE__);
+  
   double timeEnd;
   double time;
   //stop the timer and calculate the total run time for the file writing
@@ -125,6 +155,8 @@ int main(int argc, char *argv[])
       printf("Run time is %lf\n", time);
     }
 
+  printLine(__LINE__);
+  
   float coordBuf[sizeof(coordinates)];
   float elemBuf[sizeof(elements)];
   MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR,
@@ -132,6 +164,8 @@ int main(int argc, char *argv[])
   MPI_File_read_at(fh,myrank*bufsize,coordBuf,nintsC,MPI_FLOAT,&status);
   MPI_File_read_at(fh,myrank*bufsize+sizeof(coordinates),elemBuf,nintsE,MPI_FLOAT,&status);
   MPI_File_close(&fh);
+
+  printLine(__LINE__);
   
   MPI_Finalize();
 
