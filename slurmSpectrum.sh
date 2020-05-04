@@ -18,5 +18,5 @@ mv /tmp/tmp.$SLURM_JOB_ID /tmp/hosts.$SLURM_JOB_ID
 module load gcc/7.4.0/1
 module load spectrum-mpi
 module load cuda
-mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS /gpfs/u/home/PCP9/PCP9pssn/scratch/Powder-Layer-Consolidation/gol-cuda-mpi-exe 1024
+mpirun -hostfile /tmp/hosts.$SLURM_JOB_ID -np $SLURM_NPROCS /gpfs/u/home/PCP9/PCP9pssn/scratch/Powder-Layer-Consolidation/gol-cuda-mpi-exe 1024 32768
 rm /tmp/hosts.$SLURM_JOB_ID

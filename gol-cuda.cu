@@ -47,7 +47,7 @@ extern float *a_bar;
 
 extern "C"
 {
-  extern void num_ElementsNodes(char baseName [80], int myrank);
+  extern void num_ElementsNodes(char baseName [80], int myrank, int nnodes);
   
   //extern int offsetCalc(char baseName [80], int numranks, int myrank);
 
@@ -75,7 +75,7 @@ void printLine(int line)
   fclose(fp);
 }
 
-void num_ElementsNodes(char baseName [80], int myrank)
+void num_ElementsNodes(char baseName [80], int myrank, int nnodes)
 {
   /*
   printLine(__LINE__);
@@ -121,7 +121,7 @@ void num_ElementsNodes(char baseName [80], int myrank)
   nel = ncellsG;
   printf("%d\n",nnodes);
   */
-  nnodes = 10000;
+  //nnodes = 10000;
   nel = nnodes * 6;
 }
 /*

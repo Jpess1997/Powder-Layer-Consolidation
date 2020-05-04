@@ -40,7 +40,7 @@ float Tol = 2.5;
 size_t np = 4;
 
 //extern functions from the gol-cuda file
-extern void num_ElementsNodes(char baseName[80], int myrank);
+extern void num_ElementsNodes(char baseName[80], int myrank, int nnodes);
 
 //extern int offsetCalc(char baseName[80], int numranks, int myrank);
 
@@ -99,6 +99,7 @@ int main(int argc, char *argv[])
   int offset;
   //The only user input for the function is the desired number of threads
   threadsCount = atoi(argv[1]);
+  nnodes = atoi(argv[2]);
 
   printLine(__LINE__);
   
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
   
   printLine(__LINE__);
   
-  num_ElementsNodes(baseName, myrank);
+  num_ElementsNodes(baseName, myrank, nnodes);
   printLine(__LINE__);
   read_coordinates(baseName, myrank, nnodes);
   printLine(__LINE__);
