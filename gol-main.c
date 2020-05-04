@@ -21,7 +21,7 @@ float *elements;
 
 int nel, nnodes, nzmax;
 
-char baseName[80]  = "/Powder-Layer-Consolidation/Layer_270_09_10/0/";
+char baseName[80]  = "Layer_270_09_10/0/";
 
 float *psi;
 
@@ -42,7 +42,7 @@ size_t np = 4;
 //extern functions from the gol-cuda file
 extern void num_ElementsNodes(char baseName[80], int myrank);
 
-extern int offsetCalc(char baseName[80], int numranks, int myrank);
+//extern int offsetCalc(char baseName[80], int numranks, int myrank);
 
 extern void read_coordinates(char baseName[80], int myrank, int nnodes);
 
@@ -67,10 +67,29 @@ void printLine(int line)
   fclose(fp);
 }
 
+typedef unsigned long long ticks;
+static __inline__ ticks getticks(void)
+{
+  unsigned int tbl, tbu0, tbu1;
+  do {
+      __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
+    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
+    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
+  } while (tbu0 != tbu1);
+  return ((((unsigned long long)tbu0) << 32) | tbl);
+}
+
 //Main function for the FEM powder layer consolidation
 int main(int argc, char *argv[])
 {
   printLine(__LINE__);
+
+  //=============================================
+  unsigned long long start = 0;
+  unsigned long long finish = 0;
+
+  start = getticks();
+  //==============================================
   
   //inititialize variables needed for calculations
   int myrank;
@@ -90,6 +109,13 @@ int main(int argc, char *argv[])
   MPI_Comm_rank(MPI_COMM_WORLD, &myrank); //rank of the current process
   MPI_Comm_size(MPI_COMM_WORLD, &numranks); //Total Number of MPI ranks
 
+  double timeStart; // start the timer for recording the time for CUDA and MPI calculations
+  if (myrank == 0)
+    {
+      printf("StartTimer\n");
+      timeStart = MPI_Wtime();
+    }
+  
   printLine(__LINE__);
   
   num_ElementsNodes(baseName, myrank);
@@ -107,18 +133,28 @@ int main(int argc, char *argv[])
 
   printLine(__LINE__);
   
-  offset = offsetCalc(baseName, numranks, myrank);
+  //offset = offsetCalc(baseName, numranks, myrank);
 
   printLine(__LINE__);
-  
+  /*
   for(i=0;nel;i++)
   {
     elements[i] = elements[i] + offset[&myrank];
   }
+  */
 
-  printLine(__LINE__);
+  double timeEnd;
+  double time;
+  //stop the timer and calculate the total run time for the CUDA and MPI calculations
+  if (myrank == 0)
+    {
+      timeEnd = MPI_Wtime();
+      time = timeEnd - timeStart;
+      printf("Run time for the cuda functions and MPI calculation is %lf\n", time);
+    }
   
-  double timeStart; // start the timer for recording the processing time for the file writing
+  printLine(__LINE__);
+
   if (myrank == 0)
     {
       printf("StartTimer\n");
@@ -145,17 +181,21 @@ int main(int argc, char *argv[])
 
   printLine(__LINE__);
   
-  double timeEnd;
-  double time;
   //stop the timer and calculate the total run time for the file writing
   if (myrank == 0)
     {
       timeEnd = MPI_Wtime();
       time = timeEnd - timeStart;
-      printf("Run time is %lf\n", time);
+      printf("Run time for the MPI I/O file writing is %lf\n", time);
     }
 
   printLine(__LINE__);
+
+  if (myrank == 0)
+    {
+      printf("StartTimer\n");
+      timeStart = MPI_Wtime();
+    }
   
   float coordBuf[sizeof(coordinates)];
   float elemBuf[sizeof(elements)];
@@ -166,9 +206,25 @@ int main(int argc, char *argv[])
   MPI_File_close(&fh);
 
   printLine(__LINE__);
+
+   //stop the timer and calculate the total run time for the file reading
+  if (myrank == 0)
+    {
+      timeEnd = MPI_Wtime();
+      time = timeEnd - timeStart;
+      printf("Run time for the MPI I/O file reading is %lf\n", time);
+    }
   
   MPI_Finalize();
 
+  //============================================================================================
+  usleep(10000000); // 10 seconds sleep
+
+  finish = getticks();
+
+  printf("10 second usleep: finish(%llu) - start(%llu) = %llu \n", finish, start, (finish-start));
+  //============================================================================================
+  
   return false;
   //if(myrank == 0)
   //  {
@@ -177,17 +233,5 @@ int main(int argc, char *argv[])
   //		    MPI_INFO_NULL,&fh);
   //     char string = "# vtk DataFile Version 3.8\nVelocities, pressures and level set\nASCII\nDATASET UNSTRUCTURED_GRID\n";
   //  }
-  
-}
 
-typedef unsigned long long ticks;
-static __inline__ ticks getticks(void)
-{
-  unsigned int tbl, tbu0, tbu1;
-  do {
-      __asm__ __volatile__ ("mftbu %0" : "=r"(tbu0));
-    __asm__ __volatile__ ("mftb %0" : "=r"(tbl));
-    __asm__ __volatile__ ("mftbu %0" : "=r"(tbu1));
-  } while (tbu0 != tbu1);
-  return ((((unsigned long long)tbu0) << 32) | tbl);
 }

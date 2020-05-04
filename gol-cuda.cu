@@ -48,8 +48,8 @@ extern float *a_bar;
 extern "C"
 {
   extern void num_ElementsNodes(char baseName [80], int myrank);
-
-  extern int offsetCalc(char baseName [80], int numranks, int myrank);
+  
+  //extern int offsetCalc(char baseName [80], int numranks, int myrank);
 
   extern void read_coordinates(char baseName [80], int myrank, int nnodes);
 
@@ -77,16 +77,26 @@ void printLine(int line)
 
 void num_ElementsNodes(char baseName [80], int myrank)
 {
+  /*
   printLine(__LINE__);
-  char fname [100];
-  snprintf(fname,100,"%u.vtu",myrank);
+  char fname [30];
+  snprintf(fname,100,"%d.vtu",myrank);
+  printf("%s\n",fname);
   strcat(baseName, fname);
+  printf("here 1\n");
+  printf("%s\n",baseName);
   FILE *fp;
   fp = fopen(baseName,"r");
   printLine(__LINE__);
+  char tline1[100];
+  char tline2[100];
+
   
-  fgets(baseName, 47, fp);
+  fgets(tline1, 100, fp);
+  fgets(tline2, 100, fp);
+  printLine(__LINE__);
   char tline[50];
+  printLine(__LINE__);
   fgets(tline, 50, fp);
   printLine(__LINE__);
   
@@ -109,16 +119,20 @@ void num_ElementsNodes(char baseName [80], int myrank)
   
   nnodes = nnodesG;
   nel = ncellsG;
+  printf("%d\n",nnodes);
+  */
+  nnodes = 10000;
+  nel = nnodes * 6;
 }
-
+/*
 int offsetCalc(char baseName [80], int numranks, int myrank)
 {
   int i;
   char fname[30];
   FILE *fp;
   char tline[50];
-  float nnodesG[numranks];
-  float offset[numranks];
+  int nnodesG[numranks];
+  int offset[numranks];
   for(i=0;i<numranks;i++)
     {
       snprintf(fname,100,"%u.vtu",myrank);
@@ -142,10 +156,11 @@ int offsetCalc(char baseName [80], int numranks, int myrank)
     }
     return offset[numranks];
 }
-
+*/
 void read_coordinates(char baseName [80], int myrank, int nnodes)
 {
   int a,b;
+  printLine(__LINE__);
   //float coordinates[nnodes][3];
   cudaMallocManaged(&coordinates, ((nnodes * 3) * sizeof(float)));
   //size_t pitch;
@@ -157,21 +172,21 @@ void read_coordinates(char baseName [80], int myrank, int nnodes)
 	  coordinates[a+b*nnodes] = 0;
 	}
     }
-
-
+  /*
+  printLine(__LINE__);
   int count = 0;
   char str[100] = "<DataArray type=\"Float64\" Name=\"coordinates\" NumberOfComponents=\"3\" format=\"ascii\">";
   printf("got here");
-
+  printLine(__LINE__);
   char fname[30];
   snprintf(fname,100,"%u.vtu",myrank);
   strcat(baseName,fname);
   FILE *fp;
   fp = fopen(baseName,"r");
-
-  char tline[50];
-  fgets(tline,50,fp);
-
+  printLine(__LINE__);
+  char tline[100];
+  fgets(tline,100,fp);
+  printLine(__LINE__);
   int i;
   int alphabet = 0;
   for (i=0; tline[i]!= '\0'; i++)
@@ -214,6 +229,8 @@ void read_coordinates(char baseName [80], int myrank, int nnodes)
       count++;
     }
   fclose(fp);
+
+  */
 }
 
 void read_elements(char baseName [80], int myrank, int nel)
@@ -224,7 +241,7 @@ void read_elements(char baseName [80], int myrank, int nel)
     {
       elements[a] = 0;
     }
-
+  /*
   int count = 0;
   char str[80] = "<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">";
   printf("got here");
@@ -281,12 +298,18 @@ void read_elements(char baseName [80], int myrank, int nel)
       count++;
     }
   fclose(fp);
+  */
 }
 
 void read_psi(char baseName [80], int myrank, int nel)
 {
   cudaMallocManaged(&psi, (nel * sizeof(float)));
-
+  int a;
+  for(a=0;a<nel;a++)
+    {
+      psi[a] = 0.5;
+    }
+  /*
   int count = 0;
   char str[100] = "<DataArray type=\"Int32\" Name=\"connectivity\" format=\"ascii\">";
   printf("got here");
@@ -338,6 +361,7 @@ void read_psi(char baseName [80], int myrank, int nel)
       count++;
     }
   fclose(fp);
+  */
 }
 
 //struct shapeStruct {
@@ -530,6 +554,7 @@ __global__ void gen_corrector(int nnodes, int *d_ID, float *d_a_bar, float powde
 
 bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, float *elements, int nel, int **d_ID, ushort threadsCount, float **d_d, float **d_a_bar)
 {
+  printLine(__LINE__);
   //Get boundary nodes
   int count = 0;
   int i;
@@ -537,36 +562,41 @@ bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, 
   //int k;
   //int m;
   int *fixnodes;
+  float z;
   //float *xe;
   for(i=0;i<nnodes;i++)
     {
-      float z = coordinates[i+2*nnodes];
+      z = coordinates[i+2*nnodes];
       if(fabs(z - powderThick) < Tol)
         {
           fixnodes[count] = i;
           count++;
         }
     }
-
+  printLine(__LINE__);
   cudaMallocManaged(&ID, (nnodes * sizeof(int)));
   cudaMallocManaged(&d, (nnodes * sizeof(float)));
-
+  printLine(__LINE__);
   //Assembling ID array
   float ID[nnodes];
   for(i=0;i<nnodes;i++)
     {
       ID[i] = 1;
     }
-
+  printLine(__LINE__);
   int ndispl = sizeof(fixnodes)/sizeof(fixnodes[0]);
+  //printf("fixnodes1 is %d\n",fixnodes[ndispl-1]);
   int nd;
   int g;
+  printf("ndispl is %d\n",ndispl);
+  printLine(__LINE__);
   for(g=0; g<ndispl; g++)
     {
-      nd = fixnodes[g];
+      //nd = fixnodes[g];
+      nd = g;
       ID[nd] = 0;
     }
-
+  printLine(__LINE__);
   //Fill ID array
   count = 0;
   for(j=0;j<nnodes;j++)
@@ -577,8 +607,8 @@ bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, 
           ID[j] = count;
         }
     }
-
-  int ndof = 0;
+  printLine(__LINE__);
+  int ndof = 1;
   //float d;
   for(i = 0;i < nnodes;i++)
     {
@@ -589,7 +619,8 @@ bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, 
           ndof = ID[i];
         }
     }
-  
+  printf("ndof is %d\n",ndof);
+  printLine(__LINE__);
   /*
   cudaMallocManaged(&LM, (nel * sizeof(unsigned char)));
 
@@ -717,20 +748,20 @@ bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, 
   */
   //For future work implement solver for solving system of equation M * a_bar = F
   cudaMallocManaged(&a_bar, (ndof * sizeof(float)));
-
-  float *F;
+  printLine(__LINE__);
+  float F[ndof];
   for(i = 0;i < ndof;i++)
     {
       F[i] = 0;
     }
-  
-  float *a_bar;
+  printLine(__LINE__);
+  float a_bar[ndof];
 
   for(i=0; i<ndof;i++)
   {
       a_bar[i] = F[i];
   }
-
+  printLine(__LINE__);
   //Change small values to zero
   for(i=0;i<ndof;i++)
     {
@@ -739,18 +770,18 @@ bool gol_runKernel(float *coordinates, int nnodes, float powderThick,float Tol, 
           a_bar[i] = 0;
         }
     }
-
+  printLine(__LINE__);
   //Corrector phase to be done in cuda 
   size_t reqBlocksCount2 = ceil(nnodes/threadsCount); //number of blocks count for the LM array
   unsigned int blocksCount2 = (unsigned int)min(65536, (unsigned int)reqBlocksCount2);
   gen_corrector<<<blocksCount2, threadsCount>>>(nnodes, *d_ID, *d_a_bar, powderThick, *d_d);
   cudaDeviceSynchronize();
-
+  printLine(__LINE__);
   for(i=0;i<nnodes;i++)
     {
-      coordinates[i+2*nnodes] = coordinates[i+2*nnodes] + d[i];
+      coordinates[i+2*nnodes] = coordinates[i+2*nnodes];
     }
-
+  printLine(__LINE__);
   return 0;
 }
 
