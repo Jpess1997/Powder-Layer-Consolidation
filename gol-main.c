@@ -57,16 +57,18 @@ extern bool gol_runKernel(float *coordinates, int nnodes, float powderThick,
 
 extern void gol_freeData();
 
+//This is an debugging function that prints out the most recent line the code gets to when running before an error occurs
 void printLine(int line)
 {
-  char fileName[30];
-  snprintf(fileName,100,"errorAtLine.txt");
+  char fileName[30]; //initializes file buffer
+  snprintf(fileName,100,"errorAtLine.txt"); //created file name to be sent to
   FILE *fp;
-  fp = fopen(fileName,"w+");
-  fprintf(fp,"Line is %d.\n",line);
-  fclose(fp);
+  fp = fopen(fileName,"w+"); //opens file
+  fprintf(fp,"Line is %d.\n",line); //prints the current line number to the file
+  fclose(fp); //closes file
 }
 
+//function for the calculating the overhead for the code based on number of ticks
 typedef unsigned long long ticks;
 static __inline__ ticks getticks(void)
 {
@@ -118,7 +120,8 @@ int main(int argc, char *argv[])
     }
   
   printLine(__LINE__);
-  
+
+  //run the code using CUDA and MPI for each rank
   num_ElementsNodes(baseName, myrank, nnodes);
   printLine(__LINE__);
   read_coordinates(baseName, myrank, nnodes);
@@ -133,16 +136,6 @@ int main(int argc, char *argv[])
 		&d, &a_bar);
 
   printLine(__LINE__);
-  
-  //offset = offsetCalc(baseName, numranks, myrank);
-
-  printLine(__LINE__);
-  /*
-  for(i=0;nel;i++)
-  {
-    elements[i] = elements[i] + offset[&myrank];
-  }
-  */
 
   double timeEnd;
   double time;
@@ -168,8 +161,8 @@ int main(int argc, char *argv[])
   //int buf[40000000];
   int fileLength = (sizeof(coordinates) + sizeof(elements))*numranks;
   bufsize = fileLength/numranks;
-  nintsC = sizeof(coordinates)/sizeof(coordinates[0]);
-  nintsE = sizeof(elements)/sizeof(elements[0]);
+  nintsC = sizeof(coordinates)/sizeof(coordinates[0]); //set buffer for the coordinates to be written
+  nintsE = sizeof(elements)/sizeof(elements[0]); //set buffer for the elements to be written
 
   printLine(__LINE__);
   
@@ -192,14 +185,15 @@ int main(int argc, char *argv[])
 
   printLine(__LINE__);
 
+  //start timer for calcualting time to read in the data
   if (myrank == 0)
     {
       printf("StartTimer\n");
       timeStart = MPI_Wtime();
     }
   
-  float coordBuf[sizeof(coordinates)];
-  float elemBuf[sizeof(elements)];
+  float coordBuf[sizeof(coordinates)]; //buffer for reading coordinates
+  float elemBuf[sizeof(elements)]; //buffer for reading elements
   MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR,
 		MPI_INFO_NULL,&fh);
   MPI_File_read_at(fh,myrank*bufsize,coordBuf,nintsC,MPI_FLOAT,&status);
@@ -219,7 +213,7 @@ int main(int argc, char *argv[])
   MPI_Finalize();
 
   //============================================================================================
-  usleep(10000000); // 10 seconds sleep
+  //usleep(10000000); // 10 seconds sleep
 
   finish = getticks();
 
@@ -227,12 +221,5 @@ int main(int argc, char *argv[])
   //============================================================================================
   
   return false;
-  //if(myrank == 0)
-  //  {
-  //    MPI_File_open(MPI_COMM_WORLD,"Layer_270_09_10.vtk",MPI_MODE_RDWR |
-  //                MPI_MODE_CREATE | MPI_MODE_DELETE_ON_CLOSE,
-  //		    MPI_INFO_NULL,&fh);
-  //     char string = "# vtk DataFile Version 3.8\nVelocities, pressures and level set\nASCII\nDATASET UNSTRUCTURED_GRID\n";
-  //  }
 
 }
